@@ -46,7 +46,37 @@ function fire(){if(ammo<=0){toast('MAGAZINE EMPTY — PRESS R');return}ammo--;$(
 $('score').textContent=String(score).padStart(4,'0');}
 function doReload(){if(reload||ammo===24||reserve<=0)return;reload=true;toast('RELOADING...');setTimeout(()=>{let n=Math.min(24-ammo,reserve);ammo+=n;reserve-=n;$('ammo').textContent=ammo;reload=false},850)}
 function interact(){if(!active||paused)return;if(objective===1&&player.position.distanceTo(terminal.position)<3){objective=2;$('objective').innerHTML='UPLINK ACTIVATED: Proceed to extraction<br><span class="small">The extraction zone is marked in cyan.</span>';toast('UPLINK ONLINE');}else if(objective===2&&player.position.distanceTo(extract.position)<3){active=false;document.exitPointerLock?.();$('menu').style.display='flex';$('menu').querySelector('.eyebrow').textContent='MISSION COMPLETE';$('menu').querySelector('.title').innerHTML='MISSION<br>COMPLETE';$('menu').querySelector('.muted').textContent=`Extraction successful. Score: ${score}. Hostiles eliminated: ${kills}/5. This prototype currently contains Mission 01.`;$('start').textContent='REPLAY MISSION';health=100;ammo=24;reserve=96;score=0;kills=0;objective=0;$('healthText').textContent='100';$('healthBar').style.width='100%';$('ammo').textContent='24';$('score').textContent='0000';$('kills').textContent='HOSTILES: 0 / 5';}}
-function update(dt){if(!active||paused)return;let speed=keys.ShiftLeft?9:5.5;const f=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);f.y=0;f.normalize();const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();let move=new THREE.Vector3();if(keys.KeyW)move.add(f);if(keys.KeyS)move.sub(f);if(keys.KeyD)move.add(r);if(keys.KeyA)move.sub(r);if(move.lengthSq())move.normalize().multiplyScalar(speed*dt);let nx=player.position.x+move.x,nz=player.position.z+move.z;if(Math.abs(nx)<19.4)player.position.x=nx;if(nz>-29&&nz<27)player.position.z=nz;
+function blockedAt(x, z) {
+  const radius = 0.48;
+
+  for (const o of obstacles) {
+    const minX = o.x - o.sx / 2 - radius;
+    const maxX = o.x + o.sx / 2 + radius;
+    const minZ = o.z - o.sz / 2 - radius;
+    const maxZ = o.z + o.sz / 2 + radius;
+
+    if (
+      x > minX && x < maxX &&
+      z > minZ && z < maxZ
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+function update(dt){if(!active||paused)return;let speed=keys.ShiftLeft?9:5.5;const f=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);f.y=0;f.normalize();const r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();let move=new THREE.Vector3();if(keys.KeyW)move.add(f);if(keys.KeyS)move.sub(f);if(keys.KeyD)move.add(r);if(keys.KeyA)move.sub(r);if(move.lengthSq())move.normalize().multiplyScalar(speed*dt);let nx = player.position.x + move.x;
+let nz = player.position.z + move.z;
+
+if (Math.abs(nx) < 19.4 &&
+    !blockedAt(nx, player.position.z)) {
+  player.position.x = nx;
+}
+
+if (nz > -29 && nz < 27 &&
+    !blockedAt(player.position.x, nz)) {
+  player.position.z = nz;
+}
 for(const e of enemies){if(!e.alive)continue;e.cool-=dt;const d=player.position.distanceTo(e.g.position);if(d>2.1){let dir=new THREE.Vector3().subVectors(player.position,e.g.position);dir.y=0;dir.normalize();e.g.position.addScaledVector(dir,e.speed*dt);e.g.lookAt(player.position.x,e.g.position.y,player.position.z)}else if(e.cool<=0){health=Math.max(0,health-(e.boss?12:7));e.cool=1.3+Math.random();$('healthText').textContent=health;$('healthBar').style.width=health+'%';toast('INCOMING DAMAGE',500);if(health<=0){active=false;document.exitPointerLock?.();$('menu').style.display='flex';$('menu').querySelector('.eyebrow').textContent='OPERATOR DOWN';$('menu').querySelector('.title').innerHTML='MISSION<br>FAILED';$('menu').querySelector('.muted').textContent='You were overwhelmed. Replay the mission and keep moving.';$('start').textContent='RETRY MISSION';resetEnemies();}}}
 if(objective===0)$('objective').innerHTML=`OBJECTIVE: Eliminate hostile drones<br><span class="small">Hostiles remaining: ${5-kills}</span>`;if(objective===1&&player.position.distanceTo(terminal.position)<3)$('objective').innerHTML='PRESS E TO ACTIVATE UPLINK';if(objective===2&&player.position.distanceTo(extract.position)<3)$('objective').innerHTML='PRESS E TO EXTRACT';}
 function resetEnemies(){enemies.forEach(e=>scene.remove(e.g));enemies=[];spawnEnemy(-5,-4);spawnEnemy(5,-8);spawnEnemy(-12,-18);spawnEnemy(12,-20);spawnEnemy(0,-28,true);player.position.set(0,0,12);camera.rotation.set(0,0,0);terminal.position.set(0,.9,-25);extract.position.set(0,.1,-4);health=100;ammo=24;reserve=96;score=0;kills=0;objective=0;$('healthText').textContent='100';$('healthBar').style.width='100%';$('ammo').textContent='24';$('score').textContent='0000';$('kills').textContent='HOSTILES: 0 / 5';$('objective').innerHTML='OBJECTIVE: Eliminate hostile drones';$('start').onclick=()=>{resetEnemies();active=true;paused=false;$('menu').style.display='none';$('hud').style.display='block';renderer.domElement.requestPointerLock?.();clock.start()};}
